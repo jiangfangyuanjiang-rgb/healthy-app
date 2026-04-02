@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>生成图标</title>
+</head>
+<body>
+    <canvas id="canvas192" width="192" height="192"></canvas>
+    <canvas id="canvas512" width="512" height="512"></canvas>
+    <canvas id="canvas180" width="180" height="180"></canvas>
+
+    <script>
+        function createIcon(canvasId, size) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+
+            // 绿色背景
+            ctx.fillStyle = '#07c160';
+            ctx.fillRect(0, 0, size, size);
+
+            // 白色文字
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${size * 0.5}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('💪', size / 2, size / 2);
+
+            // 下载
+            canvas.toBlob(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = canvasId.replace('canvas', 'icon-') + '.png';
+                if (canvasId === 'canvas180') a.download = 'apple-touch-icon.png';
+                a.click();
+            });
+        }
+
+        setTimeout(() => {
+            createIcon('canvas192', 192);
+            setTimeout(() => createIcon('canvas512', 512), 500);
+            setTimeout(() => createIcon('canvas180', 180), 1000);
+        }, 100);
+    </script>
+</body>
+</html>

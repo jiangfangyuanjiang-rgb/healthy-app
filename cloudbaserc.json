@@ -1,0 +1,22 @@
+{
+  "envId": "healthy-app-6gsnm362e5e8530b",
+  "functionRoot": "./cloudfunction",
+  "functions": [
+    {
+      "name": "ai-proxy",
+      "timeout": 20,
+      "envVariables": {
+        "ALIYUN_API_KEY": "sk-df3229ace90f4ade9bcfb0bc3f73404e"
+      },
+      "runtime": "Nodejs16.13",
+      "installDependency": true
+    }
+  ],
+  "hosting": {
+    "root": "./dist",
+    "ignore": [
+      ".git",
+      ".gitignore"
+    ]
+  }
+}
