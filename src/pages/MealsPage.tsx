@@ -1,112 +1,172 @@
-import { useState } from 'react';
-import { Card, Button } from '../components/shared';
-import { generateMealPlan } from '../lib/ai';
-import { getProfile } from '../lib/db';
+// src/pages/MealsPage.tsx
+import React, { useState, useEffect } from 'react';
+import { MealCard } from '../components/meals/MealCard';
+import { WeeklySummary } from '../components/meals/WeeklySummary';
+import { DatePicker } from '../components/meals/DatePicker';
+import { generateMealPlan, type MealPlan } from '../lib/ai';
+import { getProfile, getFoodPreferences, getMealsByDateRange } from '../lib/db';
 
-interface Meal {
-  name: string;
-  calories: number;
-  items: string[];
-}
+type ViewMode = 'day' | 'week' | 'month' | 'year';
 
-interface MealPlan {
-  breakfast: Meal;
-  lunch: Meal;
-  dinner: Meal;
-}
-
-export function MealsPage() {
+export const MealsPage: React.FC = () => {
+  const [viewMode, setViewMode] = useState<ViewMode>('day');
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
   const [loading, setLoading] = useState(false);
-  const [meals, setMeals] = useState<MealPlan | null>(null);
-  const [error, setError] = useState('');
+  const [weeklySummary, setWeeklySummary] = useState({
+    totalCalories: 0,
+    avgCalories: 0,
+    totalProtein: 0,
+    totalCarbs: 0,
+    totalFat: 0,
+    daysLogged: 0,
+  });
 
-  async function handleGenerate() {
+  // 生成AI食谱
+  const generateMeals = async () => {
     setLoading(true);
-    setError('');
-
     try {
       const profile = await getProfile();
+      const preferences = await getFoodPreferences();
+
       if (!profile) {
-        setError('请先在"我的"页面填写个人信息');
-        setLoading(false);
+        alert('请先完善个人信息');
         return;
       }
 
-      const result = await generateMealPlan(profile);
-      setMeals(result);
-    } catch (err) {
-      setError('生成失败,请重试');
-      console.error(err);
+      const plan = await generateMealPlan(profile, preferences || undefined);
+      setMealPlan(plan);
+    } catch (error) {
+      console.error('生成食谱失败:', error);
+      alert('生成食谱失败,请稍后重试');
     } finally {
       setLoading(false);
     }
-  }
+  };
+
+  // 计算周统计
+  const calculateWeeklySummary = async () => {
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+    const startDate = startOfWeek.toISOString().split('T')[0];
+    const endDate = endOfWeek.toISOString().split('T')[0];
+
+    const meals = await getMealsByDateRange(startDate, endDate);
+
+    const uniqueDays = new Set(meals.map(m => m.date)).size;
+    const totalCals = meals.reduce((sum, m) => sum + m.totalCalories, 0);
+    const totalProt = meals.reduce((sum, m) => sum + m.totalProtein, 0);
+    const totalCarb = meals.reduce((sum, m) => sum + m.totalCarbs, 0);
+    const totalFats = meals.reduce((sum, m) => sum + m.totalFat, 0);
+
+    setWeeklySummary({
+      totalCalories: totalCals,
+      avgCalories: uniqueDays > 0 ? Math.round(totalCals / uniqueDays) : 0,
+      totalProtein: totalProt,
+      totalCarbs: totalCarb,
+      totalFat: totalFats,
+      daysLogged: uniqueDays,
+    });
+  };
+
+  useEffect(() => {
+    generateMeals();
+    calculateWeeklySummary();
+  }, []);
 
   return (
-    <div className="h-full bg-[#ededed]">
-      <div className="bg-white px-4 py-3 border-b border-[#d9d9d9]">
-        <h1 className="text-lg font-medium text-[#191919]">AI 饮食推荐</h1>
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 pb-24">
+      {/* 顶部标题 */}
+      <div className="bg-white/80 backdrop-blur-lg border-b border-gray-200 sticky top-0 z-10">
+        <div className="px-4 py-4">
+          <h1 className="text-2xl font-bold text-gray-900">AI 饮食推荐</h1>
+          <p className="text-sm text-gray-600 mt-1">科学增重,健康饮食</p>
+        </div>
       </div>
 
-      <div className="p-3 space-y-3">
-        <Button onClick={handleGenerate} loading={loading}>
-          {loading ? '正在生成...' : '🎲 AI 生成今日食谱'}
-        </Button>
+      <div className="px-4 py-6 space-y-6">
+        {/* 日期选择器 */}
+        <DatePicker
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          currentDate={currentDate}
+          onDateChange={setCurrentDate}
+        />
 
-        {error && (
-          <div className="bg-[#fa5151] bg-opacity-10 border border-[#fa5151] rounded-lg p-3 text-[#fa5151] text-sm">
-            {error}
+        {/* 周统计卡片 */}
+        {viewMode === 'week' && weeklySummary.daysLogged > 0 && (
+          <WeeklySummary {...weeklySummary} />
+        )}
+
+        {/* AI生成按钮 */}
+        {viewMode === 'day' && (
+          <button
+            onClick={generateMeals}
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-primary-500 to-emerald-600 text-white py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <span>AI 生成中...</span>
+              </>
+            ) : (
+              <>
+                <span className="text-xl">🤖</span>
+                <span>生成今日食谱</span>
+              </>
+            )}
+          </button>
+        )}
+
+        {/* 加载状态 */}
+        {loading && (
+          <div className="text-center py-12">
+            <div className="inline-block animate-bounce text-6xl mb-4">🍽️</div>
+            <p className="text-gray-600">AI 正在为你定制专属食谱...</p>
           </div>
         )}
 
-        {meals && (
-          <div className="space-y-3">
-            <MealCard meal={meals.breakfast} icon="🌅" title="早餐" />
-            <MealCard meal={meals.lunch} icon="☀️" title="午餐" />
-            <MealCard meal={meals.dinner} icon="🌙" title="晚餐" />
+        {/* 今日食谱 - 横向滚动 */}
+        {!loading && mealPlan && viewMode === 'day' && (
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 px-1">今日推荐</h2>
+            <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
+              <MealCard mealType="breakfast" meal={mealPlan.breakfast} onRefresh={generateMeals} />
+              <MealCard mealType="lunch" meal={mealPlan.lunch} onRefresh={generateMeals} />
+              <MealCard mealType="snack" meal={mealPlan.snack} onRefresh={generateMeals} />
+              <MealCard mealType="dinner" meal={mealPlan.dinner} onRefresh={generateMeals} />
+            </div>
+          </div>
+        )}
 
-            <Card className="bg-[#07c160] bg-opacity-5 border border-[#07c160] border-opacity-20">
-              <div className="text-center">
-                <p className="text-xs text-[#999999] mb-1">今日总热量</p>
-                <p className="text-3xl font-bold text-[#07c160]">
-                  {meals.breakfast.calories + meals.lunch.calories + meals.dinner.calories}
-                </p>
-                <p className="text-xs text-[#999999] mt-1">kcal</p>
-              </div>
-            </Card>
+        {/* 空状态 */}
+        {!loading && !mealPlan && viewMode === 'day' && (
+          <div className="text-center py-16">
+            <div className="text-6xl mb-4">🍽️</div>
+            <p className="text-gray-600 mb-4">还没有生成食谱</p>
+            <p className="text-sm text-gray-500">点击上方按钮生成专属增重食谱</p>
           </div>
         )}
       </div>
+
+      {/* 隐藏滚动条样式 */}
+      <style>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </div>
   );
-}
-
-function MealCard({ meal, icon, title }: { meal: Meal; icon: string; title: string }) {
-  return (
-    <Card>
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">{icon}</span>
-            <div>
-              <h3 className="font-medium text-[#191919]">{title}</h3>
-              <p className="text-xs text-[#999999]">{meal.name}</p>
-            </div>
-          </div>
-          <div className="text-right">
-            <p className="text-lg font-bold text-[#07c160]">{meal.calories}</p>
-            <p className="text-xs text-[#999999]">kcal</p>
-          </div>
-        </div>
-        <div className="space-y-1">
-          {meal.items.map((item, idx) => (
-            <div key={idx} className="flex items-center gap-2 text-sm text-[#191919]">
-              <span className="text-[#07c160]">•</span>
-              <span>{item}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </Card>
-  );
-}
+};

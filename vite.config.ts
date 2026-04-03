@@ -8,47 +8,38 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
+      includeAssets: ['icon-192.png', 'icon-512.png'],
       manifest: {
-        name: '增重助手 - AI健康管理',
+        name: '增重助手',
         short_name: '增重助手',
-        description: 'AI驱动的饮食与健身计划,助你科学增重增肌',
-        theme_color: '#07c160',
-        background_color: '#ffffff',
+        description: 'AI驱动的健康增重饮食助手',
+        theme_color: '#10b981',
+        background_color: '#f0fdf4',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/healthy-app/',
-        start_url: '/healthy-app/',
         icons: [
           {
-            src: '/icon-192.png',
+            src: 'icon-192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: '/icon-512.png',
+            src: 'icon-512.png',
             sizes: '512x512',
             type: 'image/png'
-          },
-          {
-            src: '/icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable'
           }
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/dashscope\.aliyuncs\.com\/.*/i,
+            urlPattern: /^https:\/\/.*\.tcloudbasegateway\.com\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 // 24小时
+                maxAgeSeconds: 60 * 60 * 24 // 1天
               }
             }
           }
@@ -56,13 +47,4 @@ export default defineConfig({
       }
     })
   ],
-  server: {
-    proxy: {
-      '/api/aliyun': {
-        target: 'https://dashscope.aliyuncs.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/aliyun/, '/api/v1/services/aigc/text-generation/generation'),
-      }
-    }
-  }
 })
